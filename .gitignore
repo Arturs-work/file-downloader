@@ -1,0 +1,7 @@
+/var/
+/vendor/
+
+.env.local
+.env.*.local
+
+.vscode/
