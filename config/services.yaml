@@ -20,5 +20,14 @@ services:
             - '../src/Entity/'
             - '../src/Kernel.php'
 
-    # add more service definitions when explicit configuration is needed
-    # please note that last definitions always *replace* previous ones
+    React\EventLoop\LoopInterface:
+        factory: ['React\EventLoop\Factory', 'create']
+
+    React\Socket\Connector:
+        arguments:
+            $loop: '@React\EventLoop\LoopInterface'
+
+    React\HttpClient\Client:
+        arguments:
+            $loop: '@React\EventLoop\LoopInterface'
+            $connector: '@React\Socket\Connector'

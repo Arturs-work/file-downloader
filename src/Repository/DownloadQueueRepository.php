@@ -1,0 +1,34 @@
+<?php
+
+namespace App\Repository;
+
+use App\Entity\DownloadQueue;
+use App\Enum\Status;
+use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\Persistence\ManagerRegistry;
+
+/**
+ * @extends ServiceEntityRepository<DownloadQueue>
+ */
+class DownloadQueueRepository extends ServiceEntityRepository
+{
+    private const MAX_PENDING = 5;
+
+    public function __construct(ManagerRegistry $registry)
+    {
+        parent::__construct($registry, DownloadQueue::class);
+    }
+
+    /**
+    * @return DownloadQueue[] Returns an array of DownloadQueue objects
+    */
+    public function getQueuedFiles(): array
+    {
+        return $this->createQueryBuilder('d')
+            ->andWhere('d.status = :status')
+            ->setParameter('status', Status::PENDING)
+            ->setMaxResults(self::MAX_PENDING)
+            ->getQuery()
+            ->getResult();
+    }
+}

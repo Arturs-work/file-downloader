@@ -4,7 +4,6 @@ services:
     build:
       context: .
       dockerfile: docker/php/Dockerfile
-      
     volumes:
       - ./:/var/www/app
     environment:
@@ -46,4 +45,4 @@ networks:
     driver: bridge
 
 volumes:
-  mysql_data: 
+  mysql_data:

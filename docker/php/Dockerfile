@@ -30,5 +30,4 @@ RUN groupadd -g $GID $USER && \
 # Set working directory
 WORKDIR /var/www/app
 
-# Switch to www-data user
-USER $USER 
+USER $USER
