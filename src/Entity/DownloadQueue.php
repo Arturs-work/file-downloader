@@ -30,6 +30,9 @@ class DownloadQueue
     #[ORM\Column(type: 'bigint', nullable: true, options: ['unsigned' => true])]
     private ?string $expectedSize = null;
 
+    #[ORM\Column(type: 'text', nullable: true)]
+    private ?string $error = null;
+
     public function __construct(
         string $url
     ) {
@@ -90,9 +93,14 @@ class DownloadQueue
         return $this;
     }
 
-    public function markAsComplete(): void
+    public function getError(): ?string
     {
-        $this->setStatus(Status::DONE);
+        return $this->error;
+    }
+
+    public function setError(?string $error = null): void
+    {
+        $this->error = $error;
     }
 
     public function updateProgress(int $bytes): void

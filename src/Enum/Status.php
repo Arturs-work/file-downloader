@@ -8,6 +8,7 @@ enum Status: string
     case IN_PROGRESS = 'in_progress';
     case DONE = 'done';
     case ERROR = 'error';
+    case FAILED = 'failed';
 
     public function label(): string
     {
@@ -16,6 +17,7 @@ enum Status: string
             self::IN_PROGRESS => 'In Progress',
             self::DONE => 'Done',
             self::ERROR => 'Error',
+            self::FAILED => 'Failed'
         };
     }
 }

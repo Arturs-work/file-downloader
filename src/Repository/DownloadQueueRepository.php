@@ -25,8 +25,8 @@ class DownloadQueueRepository extends ServiceEntityRepository
     public function getQueuedFiles(): array
     {
         return $this->createQueryBuilder('d')
-            ->andWhere('d.status = :status')
-            ->setParameter('status', Status::PENDING)
+            ->andWhere('d.status IN (:statuses)')
+            ->setParameter('statuses', [Status::PENDING, Status::IN_PROGRESS, Status::ERROR])
             ->setMaxResults(self::MAX_PENDING)
             ->getQuery()
             ->getResult();

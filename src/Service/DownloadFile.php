@@ -5,10 +5,10 @@ namespace App\Service;
 use App\Entity\DownloadQueue;
 use App\Enum\Status;
 use Doctrine\ORM\EntityManagerInterface;
+use Exception;
 use React\HttpClient\Client;
 use React\EventLoop\LoopInterface;
 use React\HttpClient\Response;
-use Symfony\Component\Console\Output\OutputInterface;
 use React\Promise\Deferred;
 use Symfony\Component\Console\Cursor;
 use Symfony\Component\Console\Output\Output;
@@ -21,6 +21,7 @@ class DownloadFile
     private ?string $finalFile = null;
     private int $downloadedBytes = 0;
     private int $expectedSize = 0;
+    private bool $receivedData = false;
 
     public function __construct(
         private Client $client,
@@ -28,7 +29,8 @@ class DownloadFile
         private EntityManagerInterface $em,
         private Output $output,
         private Cursor $cursor,
-        private int $lineIndex
+        private int $lineIndex,
+        private int $totalFiles
     ) {}
 
     public function start(
@@ -46,7 +48,7 @@ class DownloadFile
 
         $this->fileName = basename(parse_url($url, PHP_URL_PATH));
         $this->tmpFile = './downloads/tmp/' . $this->fileName;
-        $this->finalFile = './downloads/final/' . $this->fileName;
+        $this->finalFile = './downloads/completed/' . $this->fileName;
         $resume = file_exists($this->tmpFile) ? filesize($this->tmpFile) : 0;
 
         $request = $this->client->request('GET', $url, [
@@ -67,7 +69,7 @@ class DownloadFile
 
             $stream = new \React\Stream\WritableResourceStream(fopen($this->tmpFile, 'a'), $this->loop);
 
-            $response->on('data', function ($chunk) use ($stream, $queuedFile) {
+            $response->on('data', function ($chunk) use ($stream, $deferred, $queuedFile) {
                 $stream->write($chunk);
 
                 $this->downloadedBytes += strlen($chunk);
@@ -76,32 +78,44 @@ class DownloadFile
                     $percent = (int)(($this->downloadedBytes / $this->expectedSize) * 100);
 
                     if ($percent !== $this->lastPercent) {
+                        $this->receivedData = true;
                         $this->lastPercent = $percent;
                         $queuedFile->setBytesDownloaded((string)$this->downloadedBytes);
                         $this->em->flush();
 
-                        $this->writeToConsole(
-                            sprintf('%-20s %3d%%', $this->fileName, $percent)
-                        );
+                        $this->updateConsoleValue($percent, true);
                     }
                 }
             });
 
             $response->on('end', function () use ($stream, $deferred, $queuedFile) {
                 $stream->on('close', function () use ($deferred, $queuedFile) {
-                    $this->writeToConsole(
-                        sprintf('%-20s %s', $this->fileName, 'done')
-                    );
-
-                    if (!rename($this->tmpFile, $this->finalFile)) {
-                        $this->output->writeln("Failed to move file to final location.");
+                    try {
+                        if ($this->downloadedBytes >= $this->expectedSize &&
+                            !rename($this->tmpFile, $this->finalFile)) {
+                            $queuedFile->setStatus(Status::ERROR);
+                            $queuedFile->setError("Failed to move file to final location");
+                            $this->updateConsoleValue('error');
+                        } else {
+                            $queuedFile->setStatus(Status::DONE);
+                            $queuedFile->setError();
+                            $this->updateConsoleValue('done');
+                        }
+                    } catch (Exception $e) {
                         $queuedFile->setStatus(Status::ERROR);
+                        $queuedFile->setError($e->getMessage());
+                    }
+
+                    if ($this->downloadedBytes >= $this->expectedSize) {
+                        $deferred->resolve(true);
                     } else {
-                        $queuedFile->setStatus(Status::DONE);
+                        //update the downloaded bytes count with the actual downloaded value
+                        $queuedFile->setBytesDownloaded(filesize($this->tmpFile));
+
+                        $deferred->reject(new \RuntimeException("File incomplete"));
                     }
 
                     $this->em->flush();
-                    $deferred->resolve(true);
                 });
 
                 $stream->end();
@@ -109,8 +123,10 @@ class DownloadFile
         });
 
         $request->on('error', function (\Exception $e) use ($deferred, $queuedFile) {
-            $this->output->writeln("Error downloading {$this->fileName}: " . $e->getMessage());
+            $this->updateConsoleValue('error');
+
             $queuedFile->setStatus(Status::ERROR);
+            $queuedFile->setError($e->getMessage());
             $this->em->flush();
 
             $deferred->reject($e);
@@ -137,14 +153,25 @@ class DownloadFile
         return null;
     }
 
-    private function writeToConsole(string $message): void
+    public function updateConsoleValue(string $value, bool $percent = false): void
     {
-        $this->cursor->moveUp($this->lineIndex + 1);
+        $linesToMoveUp = $this->totalFiles - $this->lineIndex;
+
+        $this->cursor->moveUp($linesToMoveUp);
         $this->cursor->moveToColumn(1);
         $this->cursor->clearLine();
 
-        $this->output->writeln($message);
+        if ($percent) {
+             $this->output->writeln(sprintf('%-20s %3d%%', $this->fileName, $value));
+        } else {
+            $this->output->writeln(sprintf('%-20s %s', $this->fileName, $value));
+        }
 
-        $this->cursor->moveDown($this->lineIndex);
+        $this->cursor->moveDown($linesToMoveUp - 1);
+    }
+
+    public function madeProgress(): bool
+    {
+        return $this->receivedData;
     }
 }
