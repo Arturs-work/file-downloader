@@ -27,6 +27,7 @@ class DownloadFile
         private Client $client,
         private LoopInterface $loop,
         private EntityManagerInterface $em,
+        private DownloadPathService $downloadPathService,
         private Output $output,
         private Cursor $cursor,
         private int $lineIndex,
@@ -47,12 +48,12 @@ class DownloadFile
         $url = $queuedFile->getUrl();
 
         $this->fileName = basename(parse_url($url, PHP_URL_PATH));
-        $this->tmpFile = './downloads/tmp/' . $this->fileName;
-        $this->finalFile = './downloads/completed/' . $this->fileName;
+        $this->tmpFile = $this->downloadPathService->getTempPath($this->fileName);
+        $this->finalFile = $this->downloadPathService->getFinalPath($this->fileName);
         $resume = file_exists($this->tmpFile) ? filesize($this->tmpFile) : 0;
 
         $request = $this->client->request('GET', $url, [
-            'Range' => 'bytes=' . $resume . '-',
+            'Range' => sprintf('bytes=%u-', $resume)
         ]);
 
         $request->on('response', function ($response) use ($queuedFile, $resume, $deferred) {
@@ -140,14 +141,16 @@ class DownloadFile
     private function detectExpectedSize(Response $response, int $resumeFrom): ?int
     {
         $headers = $response->getHeaders();
+        $contentRange = 'Content-Range';
+        $contentLength = 'Content-Length';
 
-        if (isset($headers['Content-Range']) &&
-            preg_match('/\/(\d+)$/', $headers['Content-Range'], $matches)) {
+        if (isset($headers[$contentRange]) &&
+            preg_match('/\/(\d+)$/', $headers[$contentRange], $matches)) {
             return (int)$matches[1];
         }
 
-        if (isset($headers['Content-Length'])) {
-            return $resumeFrom + (int)$headers['Content-Length'];
+        if (isset($headers[$contentLength])) {
+            return $resumeFrom + (int)$headers[$contentLength];
         }
 
         return null;

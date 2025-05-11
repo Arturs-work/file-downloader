@@ -12,7 +12,7 @@ use Doctrine\Persistence\ManagerRegistry;
  */
 class DownloadQueueRepository extends ServiceEntityRepository
 {
-    private const MAX_PENDING = 5;
+    private const MAX_PENDING = 2;
 
     public function __construct(ManagerRegistry $registry)
     {
@@ -27,6 +27,19 @@ class DownloadQueueRepository extends ServiceEntityRepository
         return $this->createQueryBuilder('d')
             ->andWhere('d.status IN (:statuses)')
             ->setParameter('statuses', [Status::PENDING, Status::IN_PROGRESS, Status::ERROR])
+            ->setMaxResults(self::MAX_PENDING)
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
+    * @return DownloadQueue[] Returns an array of DownloadQueue objects
+    */
+    public function getAdditionalQueuedFiles(): array
+    {
+        return $this->createQueryBuilder('d')
+            ->andWhere('d.status IN (:statuses)')
+            ->setParameter('statuses', [Status::PENDING])
             ->setMaxResults(self::MAX_PENDING)
             ->getQuery()
             ->getResult();

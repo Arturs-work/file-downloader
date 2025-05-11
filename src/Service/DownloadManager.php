@@ -13,15 +13,18 @@ use Symfony\Component\Console\Cursor;
 
 class DownloadManager
 {
-    private int $maxConcurrent = 1;
+    private int $maxConcurrent = 2;
     private int $active = 0;
     private int $maxRetries = 3;
     private array $retryCounts = [];
+    private array $alreadyQueued = [];
+    private array $backoffDelays = [10, 20, 30];
 
     public function __construct(
         private Client $client,
         private LoopInterface $loop,
-        private EntityManagerInterface $em
+        private EntityManagerInterface $em,
+        private DownloadPathService $downloadPathService
     ) {}
 
     public function run(
@@ -62,6 +65,7 @@ class DownloadManager
                 $this->client,
                 $this->loop,
                 $this->em,
+                $this->downloadPathService,
                 $output,
                 $cursor,
                 $lineIndex,
@@ -87,6 +91,26 @@ class DownloadManager
                 }
             );
         });
+
+        // Dynamic polling for new files to process
+        $this->loop->addPeriodicTimer(10, function () use (&$pending, $output, $lineIndexes) {
+            if (count($pending) < $this->maxConcurrent) {
+                $newFiles = $this->em->getRepository(DownloadQueue::class)->getAdditionalQueuedFiles();
+
+                foreach ($newFiles as $i => $file) {
+                    $id = $file->getId();
+                    if (!isset($this->alreadyQueued[$id])) {
+                        //somehow messes with console lines and updates the wrong one
+
+                        // array_push($pending, $file);
+                        // $this->alreadyQueued[$id] = true;
+                        // $lineIndexes[spl_object_hash($file)] = end($lineIndexes) + $i;
+
+                        // $output->writeln(sprintf('%-20s %s', basename(parse_url($file->getUrl(), PHP_URL_PATH)), 'queued...'));
+                    }
+                }
+            }
+        });
     }
 
     private function getRetryKey(DownloadQueue $file): string
@@ -109,12 +133,7 @@ class DownloadManager
         }
 
         $attempt = ++$this->retryCounts[$key];
-        $delay = match($attempt) {
-            1 => 10,
-            2 => 20,
-            3 => 30,
-            default => 30
-        };
+        $delay = $this->backoffDelays[$attempt - 1] ?? end($this->backoffDelays);
 
         $task->updateConsoleValue(sprintf('retrying in %u seconds...', $delay));
 
