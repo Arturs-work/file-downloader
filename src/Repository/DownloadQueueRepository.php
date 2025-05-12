@@ -12,7 +12,7 @@ use Doctrine\Persistence\ManagerRegistry;
  */
 class DownloadQueueRepository extends ServiceEntityRepository
 {
-    private const MAX_PENDING = 2;
+    private const MAX_PENDING = 5;
 
     public function __construct(ManagerRegistry $registry)
     {

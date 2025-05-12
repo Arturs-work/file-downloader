@@ -40,16 +40,27 @@ class DownloadQueue
         $this->status = Status::PENDING;
     }
 
+    /**
+     * @return int|null
+     */
     public function getId(): ?int
     {
         return $this->id;
     }
 
+    /**
+     * @return string|null
+     */
     public function getUrl(): ?string
     {
         return $this->url;
     }
 
+    /**
+     * @param string $url
+     *
+     * @return self
+     */
     public function setUrl(string $url): self
     {
         $this->url = $url;
@@ -57,11 +68,19 @@ class DownloadQueue
         return $this;
     }
 
+    /**
+     * @return Status
+     */
     public function getStatus(): Status
     {
         return $this->status;
     }
 
+    /**
+     * @param Status $status
+     *
+     * @return self
+     */
     public function setStatus(Status $status): self
     {
         $this->status = $status;
@@ -69,11 +88,19 @@ class DownloadQueue
         return $this;
     }
 
+    /**
+     * @return string|null
+     */
     public function getBytesDownloaded(): ?string
     {
         return $this->bytesDownloaded;
     }
 
+    /**
+     * @param string $bytesDownloaded
+     *
+     * @return self
+     */
     public function setBytesDownloaded(string $bytesDownloaded): self
     {
         $this->bytesDownloaded = $bytesDownloaded;
@@ -81,11 +108,19 @@ class DownloadQueue
         return $this;
     }
 
+    /**
+     * @return string|null
+     */
     public function getExpectedSize(): ?string
     {
         return $this->expectedSize;
     }
 
+    /**
+     * @param string $expectedSize
+     *
+     * @return self
+     */
     public function setExpectedSize(string $expectedSize): self
     {
         $this->expectedSize = $expectedSize;
@@ -93,16 +128,29 @@ class DownloadQueue
         return $this;
     }
 
+    /**
+     * @return string|null
+     */
     public function getError(): ?string
     {
         return $this->error;
     }
 
+    /**
+     * @param string|null $error
+     *
+     * @return void
+     */
     public function setError(?string $error = null): void
     {
         $this->error = $error;
     }
 
+    /**
+     * @param int $bytes
+     *
+     * @return void
+     */
     public function updateProgress(int $bytes): void
     {
         $this->setBytesDownloaded($bytes);

@@ -32,6 +32,12 @@ class FilesDownloadCommand extends Command
             ->addOption('file', null, InputOption::VALUE_REQUIRED, 'List of urls to download');
     }
 
+    /**
+     * @param InputInterface $input
+     * @param OutputInterface $output
+     *
+     * @return int
+     */
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $file = $input->getOption('file');

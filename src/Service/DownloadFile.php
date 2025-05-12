@@ -34,6 +34,11 @@ class DownloadFile
         private int $totalFiles
     ) {}
 
+    /**
+     * @param DownloadQueue $queuedFile
+     *
+     * @return \React\Promise\PromiseInterface
+     */
     public function start(
         DownloadQueue $queuedFile
     ): \React\Promise\PromiseInterface
@@ -138,6 +143,12 @@ class DownloadFile
         return $deferred->promise();
     }
 
+    /**
+     * @param Response $response
+     * @param int $resumeFrom
+     *
+     * @return int|null
+     */
     private function detectExpectedSize(Response $response, int $resumeFrom): ?int
     {
         $headers = $response->getHeaders();
@@ -156,6 +167,12 @@ class DownloadFile
         return null;
     }
 
+    /**
+     * @param string $value
+     * @param bool $percent
+     *
+     * @return void
+     */
     public function updateConsoleValue(string $value, bool $percent = false): void
     {
         $linesToMoveUp = $this->totalFiles - $this->lineIndex;
@@ -173,6 +190,9 @@ class DownloadFile
         $this->cursor->moveDown($linesToMoveUp - 1);
     }
 
+    /**
+     * @return bool
+     */
     public function madeProgress(): bool
     {
         return $this->receivedData;

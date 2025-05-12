@@ -10,6 +10,9 @@ enum Status: string
     case ERROR = 'error';
     case FAILED = 'failed';
 
+    /**
+     * @return string
+     */
     public function label(): string
     {
         return match($this) {

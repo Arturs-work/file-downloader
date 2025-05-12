@@ -26,11 +26,17 @@ trait TimestampableTrait
         $this->updatedAt = new \DateTime();
     }
 
+    /**
+     * @return \DateTimeImmutable
+     */
     public function getCreatedAt(): \DateTimeImmutable
     {
         return $this->createdAt;
     }
 
+    /**
+     * @return \DateTimeInterface
+     */
     public function getUpdatedAt(): \DateTimeInterface
     {
         return $this->updatedAt;

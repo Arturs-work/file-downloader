@@ -13,9 +13,10 @@ use Symfony\Component\Console\Cursor;
 
 class DownloadManager
 {
-    private int $maxConcurrent = 2;
+    private int $maxConcurrent = 5;
     private int $active = 0;
     private int $maxRetries = 3;
+    private int $lastLineIndex = 0;
     private array $retryCounts = [];
     private array $alreadyQueued = [];
     private array $backoffDelays = [10, 20, 30];
@@ -27,6 +28,11 @@ class DownloadManager
         private DownloadPathService $downloadPathService
     ) {}
 
+    /**
+     * @param array $queuedFiles
+     *
+     * @return void
+     */
     public function run(
         array $queuedFiles,
         OutputInterface $output
@@ -43,6 +49,7 @@ class DownloadManager
             $fileName = basename(parse_url($file->getUrl(), PHP_URL_PATH));
             $output->writeln(sprintf('%-20s %s', $fileName, 'waiting...'));
             $lineIndexes[spl_object_hash($file)] = $i;
+            $this->lastLineIndex = $i;
         }
 
         $this->loop->addPeriodicTimer(1, function () use (&$pending, $output, $cursor, $lineIndexes, $total) {
@@ -86,6 +93,12 @@ class DownloadManager
                     } else {
                         $task->updateConsoleValue('failed');
                         $queuedFile->setStatus(Status::FAILED);
+
+                        //remove the temporary file once it has failed
+                        $url = $queuedFile->getUrl();
+                        $tmpFile = $this->downloadPathService->getTempPath(basename(parse_url($url, PHP_URL_PATH)));
+                        unlink($tmpFile);
+
                         $this->em->flush();
                     }
                 }
@@ -99,31 +112,49 @@ class DownloadManager
 
                 foreach ($newFiles as $i => $file) {
                     $id = $file->getId();
-                    if (!isset($this->alreadyQueued[$id])) {
-                        //somehow messes with console lines and updates the wrong one
+                    // if (!isset($this->alreadyQueued[$id])) {
+                    //     // still a bug  with incorrect output lines getting updated
+                    //     $this->alreadyQueued[$id] = true;
+                    //     $this->lastLineIndex++;
 
-                        // array_push($pending, $file);
-                        // $this->alreadyQueued[$id] = true;
-                        // $lineIndexes[spl_object_hash($file)] = end($lineIndexes) + $i;
+                    //     array_push($pending, $file);
+                    //     $lineIndexes[spl_object_hash($file)] = $this->lastLineIndex;
 
-                        // $output->writeln(sprintf('%-20s %s', basename(parse_url($file->getUrl(), PHP_URL_PATH)), 'queued...'));
-                    }
+                    //     $output->writeln(sprintf('%-20s %s', basename(parse_url($file->getUrl(), PHP_URL_PATH)), 'queued...'));
+                    // }
                 }
             }
         });
     }
 
+    /**
+     * @param DownloadQueue $file
+     *
+     * @return string
+     */
     private function getRetryKey(DownloadQueue $file): string
     {
         return (string) $file->getId();
     }
 
+    /**
+     * @param DownloadQueue $file
+     *
+     * @return bool
+     */
     private function shouldRetry(DownloadQueue $file): bool
     {
         $key = $this->getRetryKey($file);
         return ($this->retryCounts[$key] ?? 0) < $this->maxRetries;
     }
 
+    /**
+     * @param DownloadQueue $file
+     * @param array $pending
+     * @param DownloadFile $task
+     *
+     * @return void
+     */
     private function scheduleRetry(DownloadQueue $file, array &$pending, DownloadFile $task): void
     {
         $key = $this->getRetryKey($file);
